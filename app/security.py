@@ -1,0 +1,37 @@
+import hashlib
+import hmac
+import os
+from itsdangerous import URLSafeSerializer, BadSignature
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("APP_SECRET_KEY", "change-this-secret-key")
+serializer = URLSafeSerializer(SECRET_KEY, salt="exam-ai-session")
+
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(16).hex()
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100_000).hex()
+    return f"{salt}${hashed}"
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        salt, hashed = password_hash.split("$")
+        new_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100_000).hex()
+        return hmac.compare_digest(new_hash, hashed)
+    except Exception:
+        return False
+
+
+def create_session_token(user_id: int) -> str:
+    return serializer.dumps({"user_id": user_id})
+
+
+def read_session_token(token: str):
+    try:
+        data = serializer.loads(token)
+        return data.get("user_id")
+    except BadSignature:
+        return None

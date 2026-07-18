@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Bảng điều khiển{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Xin chào, {{ user.full_name }}</p>
+        <h1>Bảng điều khiển</h1>
+    </div>
+    <a class="btn" href="/upload">+ Tải PDF mới</a>
+</div>
+
+<section class="grid two">
+    <div class="card">
+        <h2>Tài liệu đã tải</h2>
+        {% if documents %}
+            <div class="list">
+            {% for doc in documents %}
+                <a class="list-item" href="/documents/{{ doc.id }}">
+                    <strong>{{ doc.title }}</strong>
+                    <span>{{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </a>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p>Chưa có tài liệu PDF nào.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Đề thi gần đây</h2>
+        {% if exams %}
+            <div class="list">
+            {% for exam in exams %}
+                <a class="list-item" href="/exams/{{ exam.id }}">
+                    <strong>{{ exam.title }}</strong>
+                    <span>{{ exam.questions|length }} câu hỏi · {{ exam.difficulty }}</span>
+                </a>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p>Chưa tạo đề thi nào.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

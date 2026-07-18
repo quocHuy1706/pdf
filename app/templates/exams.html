@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Danh sách đề thi{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Quản lý</p>
+        <h1>Danh sách đề thi</h1>
+    </div>
+    <a class="btn" href="/upload">Tạo đề mới</a>
+</div>
+
+<div class="card wide">
+    {% if exams %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tên đề</th>
+                    <th>Tài liệu</th>
+                    <th>Mức độ</th>
+                    <th>Số câu</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for exam in exams %}
+                <tr>
+                    <td>{{ exam.title }}</td>
+                    <td>{{ exam.document.title }}</td>
+                    <td>{{ exam.difficulty }}</td>
+                    <td>{{ exam.questions|length }}</td>
+                    <td><a class="btn small" href="/exams/{{ exam.id }}">Xem</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Chưa có đề thi nào.</p>
+    {% endif %}
+</div>
+{% endblock %}

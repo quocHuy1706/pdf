@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Sửa câu hỏi{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Chỉnh sửa</p>
+        <h1>Sửa câu hỏi trắc nghiệm</h1>
+    </div>
+    <a class="btn outline" href="/exams/{{ question.exam_id }}">Quay lại đề thi</a>
+</div>
+
+<div class="card wide">
+    <form method="post" action="/questions/{{ question.id }}/edit" class="form">
+        <label>Nội dung câu hỏi</label>
+        <textarea name="content" rows="4" required>{{ question.content }}</textarea>
+
+        <label>Đáp án A</label>
+        <textarea name="option_a" rows="2" required>{{ question.option_a }}</textarea>
+
+        <label>Đáp án B</label>
+        <textarea name="option_b" rows="2" required>{{ question.option_b }}</textarea>
+
+        <label>Đáp án C</label>
+        <textarea name="option_c" rows="2" required>{{ question.option_c }}</textarea>
+
+        <label>Đáp án D</label>
+        <textarea name="option_d" rows="2" required>{{ question.option_d }}</textarea>
+
+        <label>Đáp án đúng</label>
+        <select name="correct_answer">
+            {% for opt in ['A','B','C','D'] %}
+                <option value="{{ opt }}" {% if question.correct_answer == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Giải thích</label>
+        <textarea name="explanation" rows="3">{{ question.explanation }}</textarea>
+
+        <button class="btn" type="submit">Lưu thay đổi</button>
+    </form>
+</div>
+{% endblock %}

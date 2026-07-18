@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Exam PDF{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="container nav">
+            <a class="logo" href="/">AI Exam PDF</a>
+            <nav>
+                {% if user %}
+                    <a href="/dashboard">Bảng điều khiển</a>
+                    <a href="/upload">Tải PDF</a>
+                    <a href="/exams">Đề thi</a>
+                    <a href="/logout">Đăng xuất</a>
+                {% else %}
+                    <a href="/login">Đăng nhập</a>
+                    <a class="btn small" href="/register">Đăng ký</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="container main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Đề tài: Xây dựng hệ thống web tạo đề thi trắc nghiệm tự động từ tài liệu PDF bằng trí tuệ nhân tạo.</p>
+        </div>
+    </footer>
+</body>
+</html>

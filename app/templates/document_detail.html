@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Tài liệu PDF</p>
+        <h1>{{ document.title }}</h1>
+    </div>
+    <a class="btn outline" href="/dashboard">Quay lại</a>
+</div>
+
+<section class="grid two">
+    <div class="card">
+        <h2>Tạo đề thi từ tài liệu</h2>
+        {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+        <form method="post" action="/documents/{{ document.id }}/generate" class="form">
+            <label>Tên đề thi</label>
+            <input name="exam_title" required value="Đề thi từ {{ document.title }}">
+
+            <label>Số lượng câu hỏi</label>
+            <input type="number" name="quantity" value="5" min="1" max="30">
+
+            <label>Mức độ</label>
+            <select name="difficulty">
+                <option>Dễ</option>
+                <option selected>Trung bình</option>
+                <option>Khó</option>
+            </select>
+
+            <button class="btn" type="submit">Tạo câu hỏi bằng AI</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Đề đã tạo từ tài liệu này</h2>
+        {% if exams %}
+            <div class="list">
+            {% for exam in exams %}
+                <a class="list-item" href="/exams/{{ exam.id }}">
+                    <strong>{{ exam.title }}</strong>
+                    <span>{{ exam.questions|length }} câu hỏi</span>
+                </a>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p>Chưa có đề thi nào từ tài liệu này.</p>
+        {% endif %}
+    </div>
+</section>
+
+<div class="card wide">
+    <h2>Nội dung trích xuất xem trước</h2>
+    <pre class="preview">{{ preview_text }}</pre>
+</div>
+{% endblock %}

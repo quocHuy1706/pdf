@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+exam_ai.db
+uploads/*
+!uploads/.gitkeep
+exports/*
+!exports/.gitkeep

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ exam.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">{{ exam.difficulty }} · {{ exam.questions|length }} câu hỏi</p>
+        <h1>{{ exam.title }}</h1>
+    </div>
+    <div class="actions">
+        <a class="btn outline" href="/exams/{{ exam.id }}/export/docx">Xuất Word</a>
+        <a class="btn outline" href="/exams/{{ exam.id }}/export/pdf">Xuất PDF</a>
+        <form method="post" action="/exams/{{ exam.id }}/delete" onsubmit="return confirm('Bạn có chắc muốn xóa đề thi này?')">
+            <button class="btn danger" type="submit">Xóa đề</button>
+        </form>
+    </div>
+</div>
+
+<div class="card wide">
+    <p><strong>Tài liệu gốc:</strong> {{ exam.document.title }}</p>
+    <p><strong>Ngày tạo:</strong> {{ exam.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+</div>
+
+{% for q in exam.questions %}
+<div class="question-card">
+    <div class="question-head">
+        <h3>Câu {{ loop.index }}</h3>
+        <div class="actions">
+            <a class="btn small outline" href="/questions/{{ q.id }}/edit">Sửa</a>
+            <form method="post" action="/questions/{{ q.id }}/delete" onsubmit="return confirm('Xóa câu hỏi này?')">
+                <button class="btn small danger" type="submit">Xóa</button>
+            </form>
+        </div>
+    </div>
+    <p class="question-content">{{ q.content }}</p>
+    <ul class="options">
+        <li><strong>A.</strong> {{ q.option_a }}</li>
+        <li><strong>B.</strong> {{ q.option_b }}</li>
+        <li><strong>C.</strong> {{ q.option_c }}</li>
+        <li><strong>D.</strong> {{ q.option_d }}</li>
+    </ul>
+    <p class="answer"><strong>Đáp án đúng:</strong> {{ q.correct_answer }}</p>
+    {% if q.explanation %}<p class="explain"><strong>Giải thích:</strong> {{ q.explanation }}</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Tải PDF{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Bước 1</p>
+        <h1>Tải tài liệu PDF</h1>
+    </div>
+</div>
+
+<div class="card wide">
+    {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/upload" enctype="multipart/form-data" class="form">
+        <label>Tên tài liệu</label>
+        <input name="title" required placeholder="Ví dụ: Chương 1 - Cơ sở dữ liệu">
+
+        <label>Chọn file PDF</label>
+        <input type="file" name="file" accept="application/pdf" required>
+
+        <button class="btn" type="submit">Tải lên và trích xuất nội dung</button>
+    </form>
+</div>
+{% endblock %}

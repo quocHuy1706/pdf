@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ - AI Exam PDF{% endblock %}
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="badge">Ứng dụng AI trong giáo dục</p>
+        <h1>Tạo đề thi trắc nghiệm tự động từ tài liệu PDF</h1>
+        <p class="lead">Tải tài liệu PDF, trích xuất nội dung, tạo câu hỏi trắc nghiệm, chỉnh sửa và xuất đề thi chỉ trong vài bước.</p>
+        <div class="actions">
+            {% if user %}
+                <a class="btn" href="/dashboard">Vào hệ thống</a>
+                <a class="btn outline" href="/upload">Tải PDF ngay</a>
+            {% else %}
+                <a class="btn" href="/register">Bắt đầu</a>
+                <a class="btn outline" href="/login">Đăng nhập</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="hero-card">
+        <h3>Quy trình xử lý</h3>
+        <ol>
+            <li>Tải tài liệu PDF</li>
+            <li>Hệ thống trích xuất văn bản</li>
+            <li>AI phân tích và tạo câu hỏi</li>
+            <li>Người dùng chỉnh sửa, lưu và xuất đề</li>
+        </ol>
+    </div>
+</section>
+
+<section class="grid three">
+    <div class="card">
+        <h3>Xử lý PDF</h3>
+        <p>Đọc và trích xuất nội dung văn bản từ tài liệu học tập.</p>
+    </div>
+    <div class="card">
+        <h3>Tạo câu hỏi AI</h3>
+        <p>Sinh câu hỏi trắc nghiệm, đáp án đúng và phương án nhiễu.</p>
+    </div>
+    <div class="card">
+        <h3>Xuất đề thi</h3>
+        <p>Lưu bộ đề và xuất ra file PDF hoặc Word phục vụ in ấn.</p>
+    </div>
+</section>
+{% endblock %}
