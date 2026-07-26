@@ -1,17 +1,40 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Enum, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
 
-
 class User(Base):
+
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String(120), nullable=False)
-    email = Column(String(150), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    full_name = Column(
+        String(120)
+    )
+
+    email = Column(
+        String(150)
+    )
+
+    password_hash = Column(
+        String(255)
+    )
+
+    role = Column(
+        Enum(
+            "admin",
+            "user"
+        ),
+        default="user"
+    )
+
+    created_at = Column(
+        DateTime
+    )
 
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
     exams = relationship("Exam", back_populates="owner", cascade="all, delete-orphan")
@@ -61,3 +84,14 @@ class Question(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     exam = relationship("Exam", back_populates="questions")
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String(255), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow) 
+
+    user = relationship("User")

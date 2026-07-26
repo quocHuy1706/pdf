@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter,FastAPI, Request, Depends, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 import os
 import shutil
+from . import admin
+from .models import ActivityLog
 from dotenv import load_dotenv
-
+from .security import get_current_user
 from .database import Base, engine, get_db
 from .models import User, Document, Exam, Question
 from .security import hash_password, verify_password
@@ -31,7 +33,28 @@ app = FastAPI(title="AI Exam PDF Web")
 app.add_middleware(SessionMiddleware, secret_key=APP_SECRET_KEY)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+app.include_router(admin.router)
 
+router = APIRouter(
+    prefix="/admin",
+    tags=["Admin"]
+)
+
+def check_admin(user: User):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Bạn không có quyền Admin")
+
+@router.get("/activity-log")
+def get_activity_log(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    check_admin(current_user)
+    logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).all()
+    return [
+        {"id": log.id, "user_id": log.user_id, "action": log.action, "timestamp": log.timestamp}
+        for log in logs
+    ]
 
 def current_user(request: Request, db: Session):
     user_id = request.session.get("user_id")
@@ -46,7 +69,11 @@ def require_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Bạn cần đăng nhập.")
     return user
 
-
+def log_action(db: Session, user_id: int, action: str):
+    log_entry = ActivityLog(user_id=user_id, action=action)
+    db.add(log_entry)
+    db.commit()
+    
 @app.exception_handler(401)
 async def unauthorized_handler(request: Request, exc: HTTPException):
     return RedirectResponse(url="/login", status_code=303)
@@ -76,7 +103,7 @@ def register(
     if exists:
         return templates.TemplateResponse("register.html", {"request": request, "user": None, "error": "Email đã tồn tại."})
 
-    user = User(full_name=full_name.strip(), email=email.strip().lower(), password_hash=hash_password(password))
+    user = User(full_name=full_name.strip(), email=email.strip().lower(), password_hash=hash_password(password), role="user")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -304,3 +331,4 @@ def delete_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depend
     db.delete(exam)
     db.commit()
     return RedirectResponse(url="/exams", status_code=303)
+

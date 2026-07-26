@@ -1,13 +1,12 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
-from dotenv import load_dotenv
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import os
 
-load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:123456@localhost:3306/ai_exam_pdf_db?charset=utf8mb4")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./exam_ai.db")
+connect_args = {}
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

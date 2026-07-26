@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+
+<body>
+    <header>
+        <h1>Admin Dashboard</h1>
+    </header>
+
+    <section class="stats">
+        <div class="card">
+            <h3>Tổng số người dùng</h3>
+            <p id="total_users">0</p>
+        </div>
+        <div class="card">
+            <h3>Tổng số PDF</h3>
+            <p id="total_documents">0</p>
+        </div>
+        <div class="card">
+            <h3>Tổng số đề thi</h3>
+            <p id="total_exams">0</p>
+        </div>
+    </section>
+
+    <section class="users">
+        <h2>Danh sách người dùng</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Họ và tên</th>
+                    <th>Email</th>
+                    <th>Quyền</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="users_table">
+                <!-- Dữ liệu sẽ load từ JS -->
+            </tbody>
+        </table>
+
+        <h2>Activity Log</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Người dùng</th>
+                    <th>Hành động</th>
+                    <th>Thời gian</th>
+                </tr>
+            </thead>
+            <tbody id="activity_log_table"></tbody>
+        </table>
+    </section>
+
+    <script src="/static/admin.js"></script>
+</body>
+
+</html>

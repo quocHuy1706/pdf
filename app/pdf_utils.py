@@ -1,21 +1,22 @@
 from pypdf import PdfReader
 from pathlib import Path
+from pypdf import PdfReader
 import re
 
 
-def extract_text_from_pdf(file_path: str) -> str:
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError("Không tìm thấy file PDF.")
+def extract_text_from_pdf(path):
 
-    reader = PdfReader(str(path))
-    pages = []
+    reader = PdfReader(path)
+
+    text = ""
+
     for page in reader.pages:
-        text = page.extract_text() or ""
-        pages.append(text)
+        page_text = page.extract_text()
 
-    raw_text = "\n".join(pages)
-    return clean_text(raw_text)
+        if page_text:
+            text += page_text + "\n\n"
+
+    return text
 
 
 def clean_text(text: str) -> str:
