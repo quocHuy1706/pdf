@@ -1,6 +1,5 @@
 from pypdf import PdfReader
 from pathlib import Path
-from pypdf import PdfReader
 import re
 
 
@@ -17,6 +16,17 @@ def extract_text_from_pdf(path):
             text += page_text + "\n\n"
 
     return text
+
+
+def get_pdf_metadata(path) -> tuple[int, int]:
+    """Trả về (page_count, file_size_bytes) của một file PDF trên đĩa."""
+    file_size = Path(path).stat().st_size
+    try:
+        reader = PdfReader(path)
+        page_count = len(reader.pages)
+    except Exception:
+        page_count = 0
+    return page_count, file_size
 
 
 def clean_text(text: str) -> str:

@@ -5,8 +5,17 @@
     <div>
         <p class="badge">Tài liệu PDF</p>
         <h1>{{ document.title }}</h1>
+        <p style="color:var(--muted)">
+            {% if document.page_count %}{{ document.page_count }} trang · {% endif %}
+            {% if document.file_size %}{{ (document.file_size / 1024) | round(1) }} KB{% endif %}
+        </p>
     </div>
-    <a class="btn outline" href="/dashboard">Quay lại</a>
+    <div class="actions">
+        <a class="btn outline" href="/dashboard">Quay lại</a>
+        <form method="post" action="/documents/{{ document.id }}/delete" onsubmit="return confirm('Xóa tài liệu này? Toàn bộ đề thi tạo từ tài liệu cũng sẽ bị xóa.')">
+            <button class="btn danger" type="submit">Xóa tài liệu</button>
+        </form>
+    </div>
 </div>
 
 <section class="grid two">
@@ -16,6 +25,9 @@
         <form method="post" action="/documents/{{ document.id }}/generate" class="form">
             <label>Tên đề thi</label>
             <input name="exam_title" required value="Đề thi từ {{ document.title }}">
+
+            <label>Chủ đề / phân loại (không bắt buộc)</label>
+            <input name="category" placeholder="Ví dụ: Chương 1 - Logic mệnh đề">
 
             <label>Số lượng câu hỏi</label>
             <input type="number" name="quantity" value="5" min="1" max="30">
@@ -38,7 +50,7 @@
             {% for exam in exams %}
                 <a class="list-item" href="/exams/{{ exam.id }}">
                     <strong>{{ exam.title }}</strong>
-                    <span>{{ exam.questions|length }} câu hỏi</span>
+                    <span>{{ exam.questions|length }} câu hỏi{% if exam.category %} · {{ exam.category }}{% endif %}</span>
                 </a>
             {% endfor %}
             </div>

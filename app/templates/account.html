@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Tài khoản của tôi{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Cài đặt</p>
+        <h1>Tài khoản của tôi</h1>
+    </div>
+</div>
+
+<div class="card wide">
+    {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+    {% if success %}<p class="alert" style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;">{{ success }}</p>{% endif %}
+
+    <form method="post" action="/account" class="form">
+        <label>Họ và tên</label>
+        <input name="full_name" required value="{{ user.full_name }}">
+
+        <label>Email</label>
+        <input value="{{ user.email }}" disabled>
+
+        <hr>
+
+        <label>Mật khẩu hiện tại (chỉ cần nhập nếu muốn đổi mật khẩu)</label>
+        <input type="password" name="current_password" placeholder="Mật khẩu hiện tại">
+
+        <label>Mật khẩu mới</label>
+        <input type="password" name="new_password" minlength="6" placeholder="Để trống nếu không đổi mật khẩu">
+
+        <button class="btn" type="submit">Lưu thay đổi</button>
+    </form>
+</div>
+{% endblock %}

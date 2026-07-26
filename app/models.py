@@ -33,7 +33,8 @@ class User(Base):
     )
 
     created_at = Column(
-        DateTime
+        DateTime,
+        default=datetime.utcnow
     )
 
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
@@ -48,6 +49,8 @@ class Document(Base):
     title = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     extracted_text = Column(Text, nullable=True)
+    file_size = Column(Integer, nullable=True)  # bytes
+    page_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="documents")
@@ -62,6 +65,7 @@ class Exam(Base):
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
     title = Column(String(255), nullable=False)
     difficulty = Column(String(50), default="Trung bình")
+    category = Column(String(150), nullable=True)  # chủ đề / phân loại đề thi
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="exams")
@@ -92,6 +96,6 @@ class ActivityLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     action = Column(String(255), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow) 
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

@@ -20,7 +20,8 @@ async function loadAdminData() {
             <td>${user.email}</td>
             <td>${user.role}</td>
             <td>
-                <button class="delete" onclick="deleteUser(${user.id})">Xóa</button>
+                <button class="btn-danger" onclick="deleteUser(${user.id})">Xóa</button>
+                <button onclick="toggleRole(${user.id})">Đổi quyền</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -35,9 +36,9 @@ async function loadAdminData() {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${log.id}</td>
-            <td>${log.user_id}</td>
+            <td>${log.user_id ?? ""}</td>
             <td>${log.action}</td>
-            <td>${new Date(log.created_at).toLocaleString()}</td>
+            <td>${log.timestamp ? new Date(log.timestamp).toLocaleString() : ""}</td>
         `;
         logTbody.appendChild(tr);
     });
@@ -48,7 +49,24 @@ async function deleteUser(userId) {
 
     const res = await fetch(`/admin/users/${userId}`, { method: "DELETE" });
     const data = await res.json();
+    if (!res.ok) {
+        alert(data.detail || "Có lỗi xảy ra.");
+        return;
+    }
     alert(data.message);
+    loadAdminData();
+}
+
+async function toggleRole(userId) {
+    if (!confirm("Đổi quyền của người dùng này?")) return;
+
+    const res = await fetch(`/admin/users/${userId}/role`, { method: "PATCH" });
+    const data = await res.json();
+    if (!res.ok) {
+        alert(data.detail || "Có lỗi xảy ra.");
+        return;
+    }
+    alert(`${data.message}: ${data.role}`);
     loadAdminData();
 }
 

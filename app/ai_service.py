@@ -3,9 +3,12 @@ import logging
 import os
 import random
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from dotenv import load_dotenv
+
+from .pdf_utils import chunk_text
 
 load_dotenv()
 
@@ -21,6 +24,12 @@ AI_FALLBACK_TO_TEMPLATE = os.getenv("AI_FALLBACK_TO_TEMPLATE", "false").strip().
     "on",
 }
 
+# Văn bản dài hơn ngưỡng này sẽ được chia nhỏ và gọi Gemini song song
+# thay vì gửi nguyên khối (nhanh hơn và ít bị cắt bớt nội dung hơn).
+CHUNK_CHAR_THRESHOLD = 20_000
+CHUNK_MAX_CHARS = 6_000
+MAX_PARALLEL_WORKERS = 4
+
 
 class AIServiceError(RuntimeError):
     """Lỗi an toàn để hiển thị cho người dùng khi dịch vụ AI gặp sự cố."""
@@ -34,7 +43,8 @@ def _sentences(text: str) -> list[str]:
 def generate_questions(text: str, quantity: int = 5, difficulty: str = "Trung bình") -> list[dict]:
     """Sinh câu hỏi trắc nghiệm từ văn bản.
 
-    - AI_PROVIDER=gemini (mặc định): dùng Gemini API.
+    - AI_PROVIDER=gemini (mặc định): dùng Gemini API. Với văn bản dài (> CHUNK_CHAR_THRESHOLD
+      ký tự), nội dung sẽ được chia nhỏ và gọi API song song để tăng tốc độ và độ ổn định.
     - AI_PROVIDER=template: luôn dùng bộ sinh câu hỏi demo (không cần API key).
     - AI_FALLBACK_TO_TEMPLATE=true: nếu Gemini lỗi thì tự động chuyển sang bộ sinh demo
       thay vì báo lỗi cho người dùng.
@@ -61,6 +71,8 @@ def generate_questions(text: str, quantity: int = 5, difficulty: str = "Trung b�
         )
 
     try:
+        if len(clean_text) > CHUNK_CHAR_THRESHOLD:
+            return _generate_with_gemini_chunked(clean_text, quantity, difficulty)
         return _generate_with_gemini(clean_text, quantity, difficulty)
     except Exception as exc:
         logger.exception("Gemini API tạo câu hỏi thất bại: %s", type(exc).__name__)
@@ -69,9 +81,82 @@ def generate_questions(text: str, quantity: int = 5, difficulty: str = "Trung b�
                 return _generate_with_template(clean_text, quantity, difficulty)
             except Exception:
                 logger.exception("Bộ sinh câu hỏi demo cũng thất bại.")
-        raise AIServiceError(
-            "Không thể tạo câu hỏi bằng Gemini. Hãy kiểm tra API key, kết nối mạng, hạn mức API và tên model."
-        ) from exc
+        raise AIServiceError(_classify_gemini_error(exc)) from exc
+
+
+def _classify_gemini_error(exc: Exception) -> str:
+    """Chuyển lỗi kỹ thuật từ Gemini SDK thành thông báo tiếng Việt dễ hiểu."""
+    message = str(exc).lower()
+
+    if "429" in message or "resource_exhausted" in message or "quota" in message:
+        return (
+            "Đã vượt hạn mức (quota) của Gemini API. Vui lòng thử lại sau ít phút "
+            "hoặc kiểm tra gói cước của API key."
+        )
+    if any(k in message for k in ["401", "403", "api key not valid", "api_key_invalid", "permission_denied"]):
+        return "GEMINI_API_KEY không hợp lệ hoặc không có quyền truy cập. Hãy kiểm tra lại API key trong file .env."
+    if "timeout" in message or "deadline" in message:
+        return "Gemini API phản hồi quá lâu (timeout). Hãy thử lại hoặc giảm số lượng câu hỏi."
+    if any(k in message for k in ["500", "503", "unavailable", "internal error"]):
+        return "Máy chủ Gemini đang gặp sự cố tạm thời (quá tải). Vui lòng thử lại sau ít phút."
+    if "not found" in message and "model" in message:
+        return f"Model Gemini '{GEMINI_MODEL}' không tồn tại hoặc không khả dụng. Hãy kiểm tra lại GEMINI_MODEL trong .env."
+
+    return "Không thể tạo câu hỏi bằng Gemini. Hãy kiểm tra API key, kết nối mạng, hạn mức API và tên model."
+
+
+def _generate_with_gemini_chunked(text: str, quantity: int, difficulty: str) -> list[dict]:
+    """Chia văn bản dài thành nhiều đoạn và gọi Gemini song song cho từng đoạn,
+    sau đó gộp + loại trùng kết quả. Giúp xử lý tài liệu lớn nhanh hơn và ổn định hơn
+    so với việc gửi nguyên khối văn bản (dễ bị cắt bớt hoặc vượt giới hạn context)."""
+    chunks = chunk_text(text, max_chars=CHUNK_MAX_CHARS)
+    num_chunks = len(chunks)
+
+    if num_chunks <= 1:
+        return _generate_with_gemini(text, quantity, difficulty)
+
+    base = quantity // num_chunks
+    remainder = quantity % num_chunks
+    # Phân bổ số câu hỏi cho từng đoạn, đoạn đầu nhận thêm phần dư (nếu có)
+    per_chunk_quantities = [base + (1 if i < remainder else 0) for i in range(num_chunks)]
+    jobs = [(chunk, q) for chunk, q in zip(chunks, per_chunk_quantities) if q > 0]
+
+    results: list[dict] = []
+    errors: list[str] = []
+
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_WORKERS, len(jobs))) as executor:
+        future_to_job = {
+            executor.submit(_generate_with_gemini, chunk, q, difficulty): q
+            for chunk, q in jobs
+        }
+        for future in as_completed(future_to_job):
+            try:
+                results.extend(future.result())
+            except Exception as exc:
+                errors.append(str(exc))
+
+    # Loại câu hỏi trùng nội dung giữa các đoạn
+    seen: set[str] = set()
+    unique_results: list[dict] = []
+    for q in results:
+        key = q["content"].strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_results.append(q)
+
+    if not unique_results:
+        detail = "; ".join(errors[:3]) if errors else "không rõ nguyên nhân"
+        raise AIServiceError(f"Không thể tạo câu hỏi từ tài liệu lớn này. Chi tiết: {detail}")
+
+    if len(unique_results) < quantity:
+        logger.warning(
+            "Tài liệu lớn: chỉ tạo được %s/%s câu hỏi hợp lệ sau khi chia nhỏ văn bản (%s đoạn).",
+            len(unique_results), quantity, num_chunks,
+        )
+
+    return unique_results[:quantity]
+
 
 def _generate_with_gemini(text: str, quantity: int, difficulty: str) -> list[dict]:
     from google import genai
@@ -201,9 +286,6 @@ NỘI DUNG KIẾN THỨC:
         lower_content = content.lower()
 
         if any(word in lower_content for word in forbidden_questions):
-            continue
-
-        if any(bad in content.lower() for bad in forbidden_questions):
             continue
 
         answer_match = re.search(r"[ABCD]", str(item.get("correct_answer", "")).upper())

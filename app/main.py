@@ -1,5 +1,5 @@
-from fastapi import APIRouter,FastAPI, Request, Depends, Form, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi import FastAPI, Request, Depends, Form, UploadFile, File, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -10,11 +10,17 @@ import shutil
 from . import admin
 from .models import ActivityLog
 from dotenv import load_dotenv
-from .security import get_current_user
 from .database import Base, engine, get_db
 from .models import User, Document, Exam, Question
-from .security import hash_password, verify_password
-from .pdf_utils import extract_text_from_pdf
+from .security import (
+    hash_password,
+    verify_password,
+    update_password,
+    register_failed_login,
+    reset_failed_login,
+    is_login_locked,
+)
+from .pdf_utils import extract_text_from_pdf, get_pdf_metadata
 from .ai_service import AIServiceError, generate_questions
 from .export_utils import export_exam_docx, export_exam_pdf
 
@@ -30,31 +36,11 @@ Path(EXPORT_DIR).mkdir(exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI Exam PDF Web")
-app.add_middleware(SessionMiddleware, secret_key=APP_SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=APP_SECRET_KEY, https_only=False, same_site="lax")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 app.include_router(admin.router)
 
-router = APIRouter(
-    prefix="/admin",
-    tags=["Admin"]
-)
-
-def check_admin(user: User):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Bạn không có quyền Admin")
-
-@router.get("/activity-log")
-def get_activity_log(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    check_admin(current_user)
-    logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).all()
-    return [
-        {"id": log.id, "user_id": log.user_id, "action": log.action, "timestamp": log.timestamp}
-        for log in logs
-    ]
 
 def current_user(request: Request, db: Session):
     user_id = request.session.get("user_id")
@@ -69,14 +55,29 @@ def require_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Bạn cần đăng nhập.")
     return user
 
+
 def log_action(db: Session, user_id: int, action: str):
     log_entry = ActivityLog(user_id=user_id, action=action)
     db.add(log_entry)
     db.commit()
-    
+
+
 @app.exception_handler(401)
 async def unauthorized_handler(request: Request, exc: HTTPException):
+    # Yêu cầu JSON (gọi từ JS/API) thì trả JSON, còn lại thì chuyển hướng sang trang đăng nhập
+    if request.headers.get("accept", "").find("application/json") != -1 and "text/html" not in request.headers.get("accept", ""):
+        return JSONResponse(status_code=401, content={"detail": exc.detail})
     return RedirectResponse(url="/login", status_code=303)
+
+
+@app.exception_handler(403)
+async def forbidden_handler(request: Request, exc: HTTPException):
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(
+            content=f"<h1>403 - {exc.detail}</h1><p><a href='/dashboard'>Quay lại</a></p>",
+            status_code=403,
+        )
+    return JSONResponse(status_code=403, content={"detail": exc.detail})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -99,15 +100,20 @@ def register(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    exists = db.query(User).filter(User.email == email.strip().lower()).first()
+    email_norm = email.strip().lower()
+    exists = db.query(User).filter(User.email == email_norm).first()
     if exists:
         return templates.TemplateResponse("register.html", {"request": request, "user": None, "error": "Email đã tồn tại."})
 
-    user = User(full_name=full_name.strip(), email=email.strip().lower(), password_hash=hash_password(password), role="user")
+    if len(password) < 6:
+        return templates.TemplateResponse("register.html", {"request": request, "user": None, "error": "Mật khẩu phải có ít nhất 6 ký tự."})
+
+    user = User(full_name=full_name.strip(), email=email_norm, password_hash=hash_password(password), role="user")
     db.add(user)
     db.commit()
     db.refresh(user)
     request.session["user_id"] = user.id
+    log_action(db, user.id, "Đăng ký tài khoản")
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
@@ -119,15 +125,30 @@ def login_page(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email.strip().lower()).first()
+    email_norm = email.strip().lower()
+
+    if is_login_locked(email_norm):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "user": None, "error": "Tài khoản tạm khóa do đăng nhập sai quá nhiều lần. Hãy thử lại sau."},
+        )
+
+    user = db.query(User).filter(User.email == email_norm).first()
     if not user or not verify_password(password, user.password_hash):
+        register_failed_login(email_norm)
         return templates.TemplateResponse("login.html", {"request": request, "user": None, "error": "Email hoặc mật khẩu không đúng."})
+
+    reset_failed_login(email_norm)
     request.session["user_id"] = user.id
+    log_action(db, user.id, "Đăng nhập")
     return RedirectResponse(url="/dashboard", status_code=303)
 
 
 @app.get("/logout")
-def logout(request: Request):
+def logout(request: Request, db: Session = Depends(get_db)):
+    user = current_user(request, db)
+    if user:
+        log_action(db, user.id, "Đăng xuất")
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 
@@ -137,6 +158,45 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
     documents = db.query(Document).filter(Document.user_id == user.id).order_by(Document.created_at.desc()).all()
     exams = db.query(Exam).filter(Exam.user_id == user.id).order_by(Exam.created_at.desc()).limit(5).all()
     return templates.TemplateResponse("dashboard.html", {"request": request, "user": user, "documents": documents, "exams": exams})
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page(request: Request, user: User = Depends(require_user)):
+    return templates.TemplateResponse("account.html", {"request": request, "user": user, "error": None, "success": None})
+
+
+@app.post("/account")
+def update_account(
+    request: Request,
+    full_name: str = Form(...),
+    current_password: str = Form(""),
+    new_password: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    user.full_name = full_name.strip() or user.full_name
+
+    if new_password:
+        if not verify_password(current_password, user.password_hash):
+            db.commit()
+            return templates.TemplateResponse(
+                "account.html",
+                {"request": request, "user": user, "error": "Mật khẩu hiện tại không đúng.", "success": None},
+            )
+        if len(new_password) < 6:
+            return templates.TemplateResponse(
+                "account.html",
+                {"request": request, "user": user, "error": "Mật khẩu mới phải có ít nhất 6 ký tự.", "success": None},
+            )
+        update_password(db, user, new_password)
+        log_action(db, user.id, "Đổi mật khẩu")
+    else:
+        db.commit()
+
+    return templates.TemplateResponse(
+        "account.html",
+        {"request": request, "user": user, "error": None, "success": "Đã cập nhật thông tin tài khoản."},
+    )
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -162,13 +222,23 @@ def upload_pdf(
 
     try:
         extracted_text = extract_text_from_pdf(str(file_path))
+        page_count, file_size = get_pdf_metadata(str(file_path))
     except Exception as exc:
+        file_path.unlink(missing_ok=True)
         return templates.TemplateResponse("upload.html", {"request": request, "user": user, "error": f"Không đọc được PDF: {exc}"})
 
-    document = Document(user_id=user.id, title=title.strip() or file.filename, file_path=str(file_path), extracted_text=extracted_text)
+    document = Document(
+        user_id=user.id,
+        title=title.strip() or file.filename,
+        file_path=str(file_path),
+        extracted_text=extracted_text,
+        file_size=file_size,
+        page_count=page_count,
+    )
     db.add(document)
     db.commit()
     db.refresh(document)
+    log_action(db, user.id, f"Tải lên tài liệu: {document.title}")
     return RedirectResponse(url=f"/documents/{document.id}", status_code=303)
 
 
@@ -182,6 +252,22 @@ def document_detail(document_id: int, request: Request, db: Session = Depends(ge
     return templates.TemplateResponse("document_detail.html", {"request": request, "user": user, "document": document, "preview_text": preview_text, "exams": exams})
 
 
+@app.post("/documents/{document_id}/delete")
+def delete_document(document_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    document = db.query(Document).filter(Document.id == document_id, Document.user_id == user.id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
+
+    file_path = Path(document.file_path)
+    title = document.title
+    db.delete(document)
+    db.commit()
+    file_path.unlink(missing_ok=True)
+
+    log_action(db, user.id, f"Xóa tài liệu: {title}")
+    return RedirectResponse(url="/dashboard", status_code=303)
+
+
 @app.post("/documents/{document_id}/generate")
 def generate_exam(
     document_id: int,
@@ -189,6 +275,7 @@ def generate_exam(
     exam_title: str = Form(...),
     quantity: int = Form(5),
     difficulty: str = Form("Trung bình"),
+    category: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
@@ -222,7 +309,13 @@ def generate_exam(
             status_code=400,
         )
 
-    exam = Exam(user_id=user.id, document_id=document.id, title=exam_title.strip() or f"Đề thi từ {document.title}", difficulty=difficulty)
+    exam = Exam(
+        user_id=user.id,
+        document_id=document.id,
+        title=exam_title.strip() or f"Đề thi từ {document.title}",
+        difficulty=difficulty,
+        category=category.strip() or None,
+    )
     db.add(exam)
     db.flush()
 
@@ -241,6 +334,7 @@ def generate_exam(
 
     db.commit()
     db.refresh(exam)
+    log_action(db, user.id, f"Tạo đề thi: {exam.title} ({len(questions)} câu)")
     return RedirectResponse(url=f"/exams/{exam.id}", status_code=303)
 
 
@@ -291,6 +385,7 @@ def edit_question(
     question.correct_answer = correct_answer.strip().upper()[:1]
     question.explanation = explanation.strip()
     db.commit()
+    log_action(db, user.id, f"Sửa câu hỏi #{question.id}")
     return RedirectResponse(url=f"/exams/{question.exam_id}", status_code=303)
 
 
@@ -302,6 +397,7 @@ def delete_question(question_id: int, db: Session = Depends(get_db), user: User 
     exam_id = question.exam_id
     db.delete(question)
     db.commit()
+    log_action(db, user.id, f"Xóa câu hỏi #{question_id}")
     return RedirectResponse(url=f"/exams/{exam_id}", status_code=303)
 
 
@@ -320,6 +416,7 @@ def export_exam(exam_id: int, file_type: str, db: Session = Depends(get_db), use
     else:
         raise HTTPException(status_code=400, detail="Định dạng không hợp lệ.")
 
+    log_action(db, user.id, f"Xuất đề thi: {exam.title} ({file_type})")
     return FileResponse(path, media_type=media_type, filename=Path(path).name)
 
 
@@ -328,7 +425,8 @@ def delete_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depend
     exam = db.query(Exam).filter(Exam.id == exam_id, Exam.user_id == user.id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
+    title = exam.title
     db.delete(exam)
     db.commit()
+    log_action(db, user.id, f"Xóa đề thi: {title}")
     return RedirectResponse(url="/exams", status_code=303)
-

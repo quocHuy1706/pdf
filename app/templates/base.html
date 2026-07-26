@@ -15,6 +15,10 @@
                     <a href="/dashboard">Bảng điều khiển</a>
                     <a href="/upload">Tải PDF</a>
                     <a href="/exams">Đề thi</a>
+                    <a href="/account">Tài khoản</a>
+                    {% if user.role == "admin" %}
+                        <a href="/admin/dashboard">Admin</a>
+                    {% endif %}
                     <a href="/logout">Đăng xuất</a>
                 {% else %}
                     <a href="/login">Đăng nhập</a>

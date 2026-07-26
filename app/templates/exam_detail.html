@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
     <div>
-        <p class="badge">{{ exam.difficulty }} · {{ exam.questions|length }} câu hỏi</p>
+        <p class="badge">{{ exam.difficulty }} · {{ exam.questions|length }} câu hỏi{% if exam.category %} · {{ exam.category }}{% endif %}</p>
         <h1>{{ exam.title }}</h1>
     </div>
     <div class="actions">

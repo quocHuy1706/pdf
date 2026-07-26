@@ -16,6 +16,7 @@
                 <tr>
                     <th>Tên đề</th>
                     <th>Tài liệu</th>
+                    <th>Chủ đề</th>
                     <th>Mức độ</th>
                     <th>Số câu</th>
                     <th>Thao tác</th>
@@ -26,6 +27,7 @@
                 <tr>
                     <td>{{ exam.title }}</td>
                     <td>{{ exam.document.title }}</td>
+                    <td>{{ exam.category or "—" }}</td>
                     <td>{{ exam.difficulty }}</td>
                     <td>{{ exam.questions|length }}</td>
                     <td><a class="btn small" href="/exams/{{ exam.id }}">Xem</a></td>
