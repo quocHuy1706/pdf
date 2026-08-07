@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Lịch sử hoạt động{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="badge">Nhật ký</p>
+        <h1>Lịch sử hoạt động của tôi</h1>
+    </div>
+    <a class="btn outline" href="/dashboard">Quay lại</a>
+</div>
+
+<div class="card wide">
+    {% if logs %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for log in logs %}
+                <tr>
+                    <td style="white-space:nowrap;">{{ log.timestamp.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ log.action }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="empty-state">Chưa có hoạt động nào được ghi nhận.</p>
+    {% endif %}
+</div>
+{% endblock %}

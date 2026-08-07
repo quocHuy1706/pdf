@@ -20,7 +20,7 @@ from .security import (
     reset_failed_login,
     is_login_locked,
 )
-from .pdf_utils import extract_text_from_pdf, get_pdf_metadata
+from .pdf_utils import extract_text_from_pdf, get_pdf_metadata, has_extraction_issues
 from .ai_service import AIServiceError, generate_questions
 from .export_utils import export_exam_docx, export_exam_pdf
 
@@ -156,8 +156,35 @@ def logout(request: Request, db: Session = Depends(get_db)):
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
     documents = db.query(Document).filter(Document.user_id == user.id).order_by(Document.created_at.desc()).all()
-    exams = db.query(Exam).filter(Exam.user_id == user.id).order_by(Exam.created_at.desc()).limit(5).all()
-    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user, "documents": documents, "exams": exams})
+    all_exams = db.query(Exam).filter(Exam.user_id == user.id).order_by(Exam.created_at.desc()).all()
+    exams = all_exams[:5]
+    total_questions = sum(len(e.questions) for e in all_exams)
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "documents": documents,
+            "exams": exams,
+            "stats": {
+                "documents": len(documents),
+                "exams": len(all_exams),
+                "questions": total_questions,
+            },
+        },
+    )
+
+
+@app.get("/activity", response_class=HTMLResponse)
+def activity_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    logs = (
+        db.query(ActivityLog)
+        .filter(ActivityLog.user_id == user.id)
+        .order_by(ActivityLog.timestamp.desc())
+        .limit(200)
+        .all()
+    )
+    return templates.TemplateResponse("activity.html", {"request": request, "user": user, "logs": logs})
 
 
 @app.get("/account", response_class=HTMLResponse)
@@ -234,6 +261,7 @@ def upload_pdf(
         extracted_text=extracted_text,
         file_size=file_size,
         page_count=page_count,
+        extraction_warning=has_extraction_issues(extracted_text),
     )
     db.add(document)
     db.commit()

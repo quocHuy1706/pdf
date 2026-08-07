@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Enum, Integer, String, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -51,6 +51,7 @@ class Document(Base):
     extracted_text = Column(Text, nullable=True)
     file_size = Column(Integer, nullable=True)  # bytes
     page_count = Column(Integer, nullable=True)
+    extraction_warning = Column(Boolean, nullable=True, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="documents")

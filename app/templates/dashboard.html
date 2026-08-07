@@ -9,6 +9,21 @@
     <a class="btn" href="/upload">+ Tải PDF mới</a>
 </div>
 
+<section class="stats-row">
+    <div class="stat-card">
+        <span class="stat-number">{{ stats.documents }}</span>
+        <span class="stat-label">Tài liệu PDF</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-number">{{ stats.exams }}</span>
+        <span class="stat-label">Đề thi đã tạo</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-number">{{ stats.questions }}</span>
+        <span class="stat-label">Câu hỏi đã sinh</span>
+    </div>
+</section>
+
 <section class="grid two">
     <div class="card">
         <h2>Tài liệu đã tải</h2>
@@ -17,12 +32,12 @@
             {% for doc in documents %}
                 <a class="list-item" href="/documents/{{ doc.id }}">
                     <strong>{{ doc.title }}</strong>
-                    <span>{{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                    <span>{{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}{% if doc.page_count %} · {{ doc.page_count }} trang{% endif %}</span>
                 </a>
             {% endfor %}
             </div>
         {% else %}
-            <p>Chưa có tài liệu PDF nào.</p>
+            <p class="empty-state">Chưa có tài liệu PDF nào. <a href="/upload">Tải lên tài liệu đầu tiên</a>.</p>
         {% endif %}
     </div>
 
@@ -37,9 +52,12 @@
                 </a>
             {% endfor %}
             </div>
+            <p style="margin-top:12px;"><a href="/exams">Xem tất cả đề thi &rarr;</a></p>
         {% else %}
-            <p>Chưa tạo đề thi nào.</p>
+            <p class="empty-state">Chưa tạo đề thi nào.</p>
         {% endif %}
     </div>
 </section>
+
+<p style="margin-top:8px;"><a href="/activity">Xem lịch sử hoạt động của tôi &rarr;</a></p>
 {% endblock %}

@@ -12,17 +12,27 @@
     </div>
     <div class="actions">
         <a class="btn outline" href="/dashboard">Quay lại</a>
-        <form method="post" action="/documents/{{ document.id }}/delete" onsubmit="return confirm('Xóa tài liệu này? Toàn bộ đề thi tạo từ tài liệu cũng sẽ bị xóa.')">
+        <form method="post" action="/documents/{{ document.id }}/delete"
+            onsubmit="return confirm('Xóa tài liệu này? Toàn bộ đề thi tạo từ tài liệu cũng sẽ bị xóa.')">
             <button class="btn danger" type="submit">Xóa tài liệu</button>
         </form>
     </div>
 </div>
 
+{% if document.extraction_warning %}
+<div class="alert" style="margin-bottom:22px;">
+    <strong>Lưu ý:</strong> hệ thống phát hiện tài liệu này có thể chứa ký hiệu toán học
+    hoặc dấu tiếng Việt bị trích xuất sai/thiếu (do font nhúng trong file PDF gốc).
+    Hãy kiểm tra lại phần nội dung trích xuất bên dưới và các câu hỏi AI tạo ra liên quan
+    đến những đoạn có công thức, ký hiệu logic (∧, ∨, ⇒...) để đảm bảo chính xác.
+</div>
+{% endif %}
+
 <section class="grid two">
     <div class="card">
         <h2>Tạo đề thi từ tài liệu</h2>
         {% if error %}<p class="alert">{{ error }}</p>{% endif %}
-        <form method="post" action="/documents/{{ document.id }}/generate" class="form">
+        <form method="post" action="/documents/{{ document.id }}/generate" class="form" id="generate-form">
             <label>Tên đề thi</label>
             <input name="exam_title" required value="Đề thi từ {{ document.title }}">
 
@@ -39,29 +49,66 @@
                 <option>Khó</option>
             </select>
 
-            <button class="btn" type="submit">Tạo câu hỏi bằng AI</button>
+            <button class="btn" type="submit" id="generate-btn">Tạo câu hỏi bằng AI</button>
+            <p id="generate-hint" style="display:none;color:var(--muted);font-size:14px;">
+                AI đang đọc tài liệu và soạn câu hỏi, việc này có thể mất khoảng vài chục giây với tài liệu dài. Vui
+                lòng không tải lại trang.
+            </p>
         </form>
     </div>
 
     <div class="card">
         <h2>Đề đã tạo từ tài liệu này</h2>
         {% if exams %}
-            <div class="list">
+        <div class="list">
             {% for exam in exams %}
-                <a class="list-item" href="/exams/{{ exam.id }}">
-                    <strong>{{ exam.title }}</strong>
-                    <span>{{ exam.questions|length }} câu hỏi{% if exam.category %} · {{ exam.category }}{% endif %}</span>
-                </a>
+            <a class="list-item" href="/exams/{{ exam.id }}">
+                <strong>{{ exam.title }}</strong>
+                <span>{{ exam.questions|length }} câu hỏi{% if exam.category %} · {{ exam.category }}{% endif %}</span>
+            </a>
             {% endfor %}
-            </div>
+        </div>
         {% else %}
-            <p>Chưa có đề thi nào từ tài liệu này.</p>
+        <p class="empty-state">Chưa có đề thi nào từ tài liệu này.</p>
         {% endif %}
     </div>
 </section>
 
 <div class="card wide">
-    <h2>Nội dung trích xuất xem trước</h2>
-    <pre class="preview">{{ preview_text }}</pre>
+    <div class="page-head" style="margin-bottom:12px;">
+        <h2 style="margin:0;">Nội dung trích xuất xem trước</h2>
+        <button type="button" class="btn small outline" id="toggle-preview">Xem toàn bộ nội dung</button>
+    </div>
+    <pre class="preview"
+        id="preview-short">{{ preview_text }}{% if document.extracted_text and document.extracted_text|length > 3000 %}…{% endif %}</pre>
+    <pre class="preview" id="preview-full" style="display:none;">{{ document.extracted_text }}</pre>
 </div>
+
+<script>
+    // Bật trạng thái loading khi bấm "Tạo câu hỏi bằng AI" để tránh bấm trùng
+    // và cho người dùng biết hệ thống đang xử lý (đặc biệt với tài liệu dài).
+    const form = document.getElementById("generate-form");
+    const btn = document.getElementById("generate-btn");
+    const hint = document.getElementById("generate-hint");
+    if (form) {
+        form.addEventListener("submit", function () {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Đang tạo câu hỏi...';
+            hint.style.display = "block";
+        });
+    }
+
+    // Toggle xem toàn bộ nội dung trích xuất thay vì chỉ 3000 ký tự đầu
+    const toggleBtn = document.getElementById("toggle-preview");
+    const shortPreview = document.getElementById("preview-short");
+    const fullPreview = document.getElementById("preview-full");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", function () {
+            const showingFull = fullPreview.style.display !== "none";
+            fullPreview.style.display = showingFull ? "none" : "block";
+            shortPreview.style.display = showingFull ? "block" : "none";
+            toggleBtn.textContent = showingFull ? "Xem toàn bộ nội dung" : "Thu gọn";
+        });
+    }
+</script>
 {% endblock %}
