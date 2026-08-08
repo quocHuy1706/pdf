@@ -1,3 +1,4 @@
+import hashlib
 import io
 import logging
 import os
@@ -249,3 +250,11 @@ def chunk_text(text: str, max_chars: int = 4500) -> list[str]:
     if current:
         chunks.append(current)
     return chunks or [text[:max_chars]]
+
+
+def calculate_file_hash(content: bytes) -> str:
+    """
+    Tính SHA-256 của nội dung file.
+    Cùng một file sẽ luôn tạo ra cùng một hash.
+    """
+    return hashlib.sha256(content).hexdigest()

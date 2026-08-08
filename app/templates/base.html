@@ -1,29 +1,37 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI Exam PDF{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Alumni+Sans:wght@100;300;400&family=Albert+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.0">
+    <link rel="icon" href="/static/icon.jpeg" type="image/jpeg">
 </head>
+
 <body>
     <header class="topbar">
         <div class="container nav">
             <a class="logo" href="/">AI Exam PDF</a>
             <nav>
                 {% if user %}
-                    <a href="/dashboard">Bảng điều khiển</a>
-                    <a href="/upload">Tải PDF</a>
-                    <a href="/exams">Đề thi</a>
-                    <a href="/activity">Lịch sử</a>
-                    <a href="/account">Tài khoản</a>
-                    {% if user.role == "admin" %}
-                        <a href="/admin/dashboard">Admin</a>
-                    {% endif %}
-                    <a href="/logout">Đăng xuất</a>
+                <a href="/dashboard">Bảng điều khiển</a>
+                <a href="/upload">Tải PDF</a>
+                <a href="/exams">Đề thi</a>
+                <a href="/activity">Lịch sử</a>
+                <a href="/account">Tài khoản</a>
+                {% if user.role == "admin" %}
+                <a href="/admin/dashboard">Admin</a>
+                {% endif %}
+                <a href="/logout">Đăng xuất</a>
                 {% else %}
-                    <a href="/login">Đăng nhập</a>
-                    <a class="btn small" href="/register">Đăng ký</a>
+                <a href="/login">Đăng nhập</a>
+                <a class="btn small" href="/register">Đăng ký</a>
                 {% endif %}
             </nav>
         </div>
@@ -39,4 +47,5 @@
         </div>
     </footer>
 </body>
+
 </html>

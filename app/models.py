@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, Integer, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Enum, Integer, String, Text, ForeignKey, DateTime, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -53,10 +53,17 @@ class Document(Base):
     page_count = Column(Integer, nullable=True)
     extraction_warning = Column(Boolean, nullable=True, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    file_hash = Column(String(64), nullable=True)
+    
     owner = relationship("User", back_populates="documents")
     exams = relationship("Exam", back_populates="document", cascade="all, delete-orphan")
-
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "file_hash",
+            name="uq_documents_user_file_hash",
+        ),
+    )
 
 class Exam(Base):
     __tablename__ = "exams"

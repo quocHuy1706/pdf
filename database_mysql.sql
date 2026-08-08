@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS documents (
 
     INDEX idx_documents_user_id (user_id),
 
+    UNIQUE KEY uq_documents_user_file_hash (
+        user_id,
+        file_hash
+    ),
+    
     CONSTRAINT fk_documents_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE

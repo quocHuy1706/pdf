@@ -10,7 +10,9 @@
 
 <div class="card wide">
     {% if error %}<p class="alert">{{ error }}</p>{% endif %}
-    {% if success %}<p class="alert" style="background:#ecfdf5;color:#047857;border-color:#a7f3d0;">{{ success }}</p>{% endif %}
+    {% if success %}<p class="alert"
+        style="background:oklch(45% 0.15 145 / 0.14);color:oklch(80% 0.14 145);border-color:oklch(75% 0.12 145 / 0.4);">
+        {{ success }}</p>{% endif %}
 
     <form method="post" action="/account" class="form">
         <label>Họ và tên</label>

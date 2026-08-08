@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from pathlib import Path
 import os
-import shutil
+import hashlib
 from . import admin
 from .models import ActivityLog
 from dotenv import load_dotenv
@@ -232,28 +232,95 @@ def upload_page(request: Request, user: User = Depends(require_user)):
 
 
 @app.post("/upload")
-def upload_pdf(
+async def upload_pdf(
     request: Request,
     title: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    if not file.filename.lower().endswith(".pdf"):
-        return templates.TemplateResponse("upload.html", {"request": request, "user": user, "error": "Vui lòng chọn file PDF."})
+    # 1. Kiểm tra định dạng PDF
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request,
+                "user": user,
+                "error": "Vui lòng chọn file PDF.",
+            },
+        )
 
-    safe_filename = f"user_{user.id}_{file.filename.replace(' ', '_')}"
+    # 2. Đọc toàn bộ nội dung file trước
+    file_content = await file.read()
+
+    if not file_content:
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request,
+                "user": user,
+                "error": "File PDF rỗng.",
+            },
+        )
+
+    # 3. Tính SHA-256
+    file_hash = hashlib.sha256(file_content).hexdigest()
+
+    # 4. Kiểm tra user này đã upload đúng file này chưa
+    existing_document = (
+        db.query(Document)
+        .filter(
+            Document.user_id == user.id,
+            Document.file_hash == file_hash,
+        )
+        .first()
+    )
+
+    # 5. Nếu đã tồn tại thì dùng lại tài liệu cũ
+    if existing_document:
+        log_action(
+            db,
+            user.id,
+            f"Mở lại tài liệu đã tồn tại: {existing_document.title}",
+        )
+
+        return RedirectResponse(
+            url=f"/documents/{existing_document.id}",
+            status_code=303,
+        )
+
+    # 6. File chưa tồn tại -> mới lưu vào uploads
+    safe_filename = (
+        f"user_{user.id}_"
+        f"{file_hash[:12]}_"
+        f"{Path(file.filename).name.replace(' ', '_')}"
+    )
+
     file_path = Path(UPLOAD_DIR) / safe_filename
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
 
     try:
+        with file_path.open("wb") as buffer:
+            buffer.write(file_content)
+
         extracted_text = extract_text_from_pdf(str(file_path))
-        page_count, file_size = get_pdf_metadata(str(file_path))
+
+        page_count, file_size = get_pdf_metadata(
+            str(file_path)
+        )
+
     except Exception as exc:
         file_path.unlink(missing_ok=True)
-        return templates.TemplateResponse("upload.html", {"request": request, "user": user, "error": f"Không đọc được PDF: {exc}"})
 
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request,
+                "user": user,
+                "error": f"Không đọc được PDF: {exc}",
+            },
+        )
+
+    # 7. Tạo document mới
     document = Document(
         user_id=user.id,
         title=title.strip() or file.filename,
@@ -261,13 +328,26 @@ def upload_pdf(
         extracted_text=extracted_text,
         file_size=file_size,
         page_count=page_count,
-        extraction_warning=has_extraction_issues(extracted_text),
+        extraction_warning=has_extraction_issues(
+            extracted_text
+        ),
+        file_hash=file_hash,
     )
+
     db.add(document)
     db.commit()
     db.refresh(document)
-    log_action(db, user.id, f"Tải lên tài liệu: {document.title}")
-    return RedirectResponse(url=f"/documents/{document.id}", status_code=303)
+
+    log_action(
+        db,
+        user.id,
+        f"Tải lên tài liệu: {document.title}",
+    )
+
+    return RedirectResponse(
+        url=f"/documents/{document.id}",
+        status_code=303,
+    )
 
 
 @app.get("/documents/{document_id}", response_class=HTMLResponse)

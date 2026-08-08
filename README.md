@@ -1,78 +1,390 @@
-# Web tạo đề thi trắc nghiệm tự động từ PDF bằng Gemini AI
+# 📚 ExamPDF AI
 
-Đây là source code mẫu cho đề tài **Xây dựng hệ thống web tạo đề thi trắc nghiệm tự động từ tài liệu PDF bằng trí tuệ nhân tạo**.
+> Hệ thống web tạo đề thi trắc nghiệm tự động từ tài liệu PDF bằng Trí tuệ nhân tạo (Gemini AI).
 
-## 1. Chức năng chính
+ExamPDF AI là hệ thống hỗ trợ giáo viên, sinh viên và người học tự động tạo đề thi trắc nghiệm từ tài liệu PDF. Hệ thống sử dụng Google Gemini AI để phân tích nội dung, sinh câu hỏi, đáp án và lời giải, giúp tiết kiệm thời gian xây dựng ngân hàng câu hỏi.
 
-- Đăng ký, đăng nhập, đăng xuất người dùng.
-- Tải tài liệu PDF lên hệ thống.
-- Trích xuất nội dung văn bản từ PDF.
-- Tạo câu hỏi trắc nghiệm tự động bằng Gemini API.
-- Chọn số lượng câu hỏi và mức độ khó.
-- Tạo phương án A/B/C/D, đáp án đúng và giải thích.
-- Chỉnh sửa câu hỏi sau khi AI tạo.
-- Lưu bộ đề vào cơ sở dữ liệu SQLite.
-- Xuất đề thi ra file PDF hoặc Word.
+---
 
-## 2. Công nghệ sử dụng
+# 🚀 Tính năng nổi bật
 
-- Backend: FastAPI, Python.
-- Database: SQLite, SQLAlchemy.
-- PDF Processing: pypdf.
-- Frontend: Jinja2, HTML, CSS.
-- AI: Google Gemini API qua Google Gen AI SDK.
-- Export: ReportLab, python-docx.
+## 👤 Quản lý người dùng
 
-## 3. Cài đặt lần đầu
+- Đăng ký tài khoản
+- Đăng nhập
+- Đăng xuất
+- Quản lý thông tin cá nhân
+- Phân quyền User / Admin
 
-```cmd
-cd D:\Thực tập viết niên luận\ai_exam_pdf_web\ai_exam_pdf_web
-py -m venv .venv
-.venv\Scripts\activate
-python -m pip install -r requirements.txt
-copy /Y .env.example .env
+---
+
+## 📄 Quản lý tài liệu
+
+- Upload tài liệu PDF
+- Trích xuất văn bản tự động
+- Lưu lịch sử tài liệu
+- Quản lý nhiều tài liệu
+- Xem chi tiết từng tài liệu
+
+---
+
+## 🤖 Tạo đề thi bằng AI
+
+- Phân tích nội dung PDF bằng Gemini AI
+- Sinh câu hỏi trắc nghiệm tự động
+- Sinh đáp án A/B/C/D
+- Xác định đáp án đúng
+- Sinh lời giải
+- Điều chỉnh số lượng câu hỏi
+- Điều chỉnh độ khó
+
+---
+
+## 📝 Quản lý đề thi
+
+- Lưu đề thi
+- Xem chi tiết đề
+- Chỉnh sửa câu hỏi
+- Xuất đề thi
+- Lưu lịch sử tạo đề
+
+---
+
+## 📊 Dashboard
+
+- Danh sách tài liệu
+- Danh sách đề thi
+- Thống kê người dùng
+- Quản lý hoạt động
+
+---
+
+# 🏗️ Kiến trúc hệ thống
+
+```
+React (Frontend)
+
+↓
+
+Cloudflare Pages
+
+↓
+
+FastAPI REST API
+
+↓
+
+Gemini AI
+
+↓
+
+MySQL
+
+↓
+
+Cloudflare R2 (định hướng)
 ```
 
-## 4. Cấu hình Gemini API
+---
 
-Mở file `.env` và thay dòng sau bằng API key Gemini mới của bạn:
+# 🛠 Công nghệ sử dụng
+
+## Backend
+
+- Python
+- FastAPI
+- SQLAlchemy
+- PyMySQL
+- Uvicorn
+
+## Frontend
+
+- React
+- Vite
+- Axios
+- React Router
+
+## Database
+
+- MySQL 8
+
+## AI
+
+- Google Gemini API
+
+## Storage
+
+- Local Storage (hiện tại)
+- Cloudflare R2 (định hướng)
+
+---
+
+# 📁 Cấu trúc dự án
+
+```
+pdf/
+
+│
+
+├── backend/
+
+│ ├── app/
+
+│ │ ├── main.py
+
+│ │ ├── database.py
+
+│ │ ├── models.py
+
+│ │ ├── ai_service.py
+
+│ │ ├── pdf_utils.py
+
+│ │ ├── security.py
+
+│ │ ├── admin.py
+
+│ │ └── routes/
+
+│
+
+├── frontend/
+
+│ ├── src/
+
+│ ├── public/
+
+│ └── package.json
+
+│
+
+├── uploads/
+
+├── exports/
+
+│
+
+├── database_mysql.sql
+
+├── requirements.txt
+
+└── README.md
+```
+
+---
+
+# ⚙️ Yêu cầu hệ thống
+
+- Python 3.12+
+- NodeJS 20+
+- MySQL 8+
+- Google Gemini API Key
+
+---
+
+# 📦 Cài đặt Backend
+
+```bash
+git clone https://github.com/quocHuy1706/pdf.git
+
+cd pdf
+
+python -m venv .venv
+```
+
+Windows
+
+```bash
+.venv\Scripts\activate
+```
+
+Linux
+
+```bash
+source .venv/bin/activate
+```
+
+Cài thư viện
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# 🗄️ Tạo Database
+
+Import
+
+```
+database_mysql.sql
+```
+
+vào MySQL.
+
+---
+
+# ⚙️ Cấu hình môi trường
+
+Tạo file
+
+```
+.env
+```
 
 ```env
+DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/pdf_web
+
 AI_PROVIDER=gemini
-GEMINI_API_KEY=your_new_gemini_api_key
-GEMINI_MODEL=gemini-3.5-flash
-AI_FALLBACK_TO_TEMPLATE=false
+
+GEMINI_API_KEY=YOUR_API_KEY
+
+GEMINI_MODEL=gemini-2.5-flash
+
+SECRET_KEY=CHANGE_ME
+
+ENVIRONMENT=development
 ```
 
-Không đưa file `.env` lên GitHub hoặc gửi cho người khác.
+---
 
-## 5. Chạy website
+# ▶️ Chạy Backend
 
-```cmd
-cd D:\Thực tập viết niên luận\ai_exam_pdf_web\ai_exam_pdf_web
-.venv\Scripts\activate
+```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Mở trình duyệt tại:
+API
 
-```text
+```
 http://127.0.0.1:8000
 ```
 
-## 6. Cập nhật từ phiên bản cũ
+Swagger
 
-Sau khi thay source code, kích hoạt môi trường ảo và cài lại thư viện:
-
-```cmd
-.venv\Scripts\activate
-python -m pip install -r requirements.txt
+```
+http://127.0.0.1:8000/docs
 ```
 
-Sau đó sửa file `.env` theo mục 4 và chạy lại server.
+---
 
-## 7. Chế độ dự phòng
+# 🌐 Chạy Frontend
 
-- `AI_FALLBACK_TO_TEMPLATE=false`: hiển thị lỗi nếu Gemini không hoạt động.
-- `AI_FALLBACK_TO_TEMPLATE=true`: tự dùng bộ sinh câu hỏi demo khi API lỗi.
-- `AI_PROVIDER=template`: luôn sử dụng bộ sinh demo, không gọi Gemini.
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+Frontend
+
+```
+http://localhost:5173
+```
+
+---
+
+# 🔄 Quy trình hoạt động
+
+```
+Đăng nhập
+
+↓
+
+Upload PDF
+
+↓
+
+Trích xuất văn bản
+
+↓
+
+Gemini AI
+
+↓
+
+Sinh câu hỏi
+
+↓
+
+Sinh đáp án
+
+↓
+
+Sinh lời giải
+
+↓
+
+Lưu Database
+
+↓
+
+Xuất đề thi
+```
+
+---
+
+# 🔒 Bảo mật
+
+- Password Hashing
+- Session Authentication
+- SQLAlchemy ORM
+- Chống SQL Injection
+- Quản lý phân quyền
+- Bảo vệ API
+
+---
+
+# 📌 Định hướng phát triển
+
+- Chat với PDF
+- Flashcard AI
+- Mindmap AI
+- Tóm tắt tài liệu
+- Bloom Taxonomy
+- AI Quality Score
+- AI Difficulty Slider
+- AI Duplicate Detection
+- OCR thông minh
+- Cloudflare R2
+- Đa ngôn ngữ
+- Mobile Responsive
+- Progressive Web App (PWA)
+
+---
+
+# 🚀 Triển khai
+
+Frontend
+
+- Cloudflare Pages
+
+Backend
+
+- Render hoặc Railway
+
+Database
+
+- MySQL
+
+Storage
+
+- Cloudflare R2
+
+---
+
+# 👨‍💻 Tác giả
+
+**Quốc Huy**
+
+GitHub:
+
+https://github.com/quocHuy1706
+
+---
+
+# ⭐ Nếu thấy dự án hữu ích
+
+Hãy để lại một ⭐ trên GitHub để ủng hộ dự án.
