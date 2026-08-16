@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import os
-from itsdangerous import URLSafeSerializer, BadSignature
 from dotenv import load_dotenv
 
 from fastapi import Depends, HTTPException, Request
@@ -9,10 +8,9 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .models import User
-load_dotenv()
+from .permissions import require_admin
 
-SECRET_KEY = os.getenv("APP_SECRET_KEY", "change-this-secret-key")
-serializer = URLSafeSerializer(SECRET_KEY, salt="exam-ai-session")
+load_dotenv()
 
 # Chống brute-force cực kỳ đơn giản (trong bộ nhớ tiến trình).
 # Với hệ thống nhiều tiến trình/nhiều máy nên thay bằng Redis.
@@ -54,38 +52,31 @@ def update_password(db: Session, user: User, new_password: str) -> None:
     db.commit()
 
 
-def create_session_token(user_id: int) -> str:
-    return serializer.dumps({"user_id": user_id})
+# ---------------------------------------------------------------------------
+# Dependency dùng chung cho TOÀN BỘ app (main.py và admin.py đều import từ đây,
+# không tự viết lại logic đọc session nữa).
+# ---------------------------------------------------------------------------
 
-
-def read_session_token(token: str):
-    try:
-        data = serializer.loads(token)
-        return data.get("user_id")
-    except BadSignature:
-        return None
-
-def get_current_user(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-
+def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    """Trả về user hiện tại nếu đã đăng nhập, ngược lại trả None (KHÔNG raise lỗi).
+    Dùng cho các trang công khai cần biết trạng thái đăng nhập, ví dụ trang chủ,
+    trang login/register (để tự động redirect nếu đã đăng nhập)."""
     user_id = request.session.get("user_id")
-
     if not user_id:
-        raise HTTPException(
-            status_code=401,
-            detail="Chưa đăng nhập"
-        )
+        return None
+    return db.query(User).filter(User.id == user_id).first()
 
-    user = db.query(User).filter(
-        User.id == user_id
-    ).first()
 
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """Yêu cầu đăng nhập: trả về user hoặc raise 401 nếu chưa đăng nhập."""
+    user = get_optional_user(request, db)
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="Không tìm thấy người dùng"
-        )
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập")
+    return user
 
+
+def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    """Yêu cầu đăng nhập VÀ có quyền admin. Raise 401 nếu chưa đăng nhập,
+    403 nếu không phải admin. Dùng cho mọi route trong admin.py."""
+    require_admin(user)
     return user

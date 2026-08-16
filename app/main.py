@@ -19,6 +19,8 @@ from .security import (
     register_failed_login,
     reset_failed_login,
     is_login_locked,
+    get_optional_user,
+    get_current_user,
 )
 from .pdf_utils import extract_text_from_pdf, get_pdf_metadata, has_extraction_issues
 from .ai_service import AIServiceError, generate_questions
@@ -40,20 +42,6 @@ app.add_middleware(SessionMiddleware, secret_key=APP_SECRET_KEY, https_only=Fals
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 app.include_router(admin.router)
-
-
-def current_user(request: Request, db: Session):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return None
-    return db.query(User).filter(User.id == user_id).first()
-
-
-def require_user(request: Request, db: Session = Depends(get_db)):
-    user = current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Bạn cần đăng nhập.")
-    return user
 
 
 def log_action(db: Session, user_id: int, action: str):
@@ -81,14 +69,12 @@ async def forbidden_handler(request: Request, exc: HTTPException):
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db)):
-    user = current_user(request, db)
+def home(request: Request, user: User | None = Depends(get_optional_user)):
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 
 @app.get("/register", response_class=HTMLResponse)
-def register_page(request: Request, db: Session = Depends(get_db)):
-    user = current_user(request, db)
+def register_page(request: Request, user: User | None = Depends(get_optional_user)):
     return templates.TemplateResponse("register.html", {"request": request, "user": user, "error": None})
 
 
@@ -118,8 +104,7 @@ def register(
 
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, db: Session = Depends(get_db)):
-    user = current_user(request, db)
+def login_page(request: Request, user: User | None = Depends(get_optional_user)):
     return templates.TemplateResponse("login.html", {"request": request, "user": user, "error": None})
 
 
@@ -145,8 +130,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), d
 
 
 @app.get("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
-    user = current_user(request, db)
+def logout(request: Request, db: Session = Depends(get_db), user: User | None = Depends(get_optional_user)):
     if user:
         log_action(db, user.id, "Đăng xuất")
     request.session.clear()
@@ -154,7 +138,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     documents = db.query(Document).filter(Document.user_id == user.id).order_by(Document.created_at.desc()).all()
     all_exams = db.query(Exam).filter(Exam.user_id == user.id).order_by(Exam.created_at.desc()).all()
     exams = all_exams[:5]
@@ -176,7 +160,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
 
 
 @app.get("/activity", response_class=HTMLResponse)
-def activity_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def activity_page(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     logs = (
         db.query(ActivityLog)
         .filter(ActivityLog.user_id == user.id)
@@ -188,7 +172,7 @@ def activity_page(request: Request, db: Session = Depends(get_db), user: User = 
 
 
 @app.get("/account", response_class=HTMLResponse)
-def account_page(request: Request, user: User = Depends(require_user)):
+def account_page(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("account.html", {"request": request, "user": user, "error": None, "success": None})
 
 
@@ -199,7 +183,7 @@ def update_account(
     current_password: str = Form(""),
     new_password: str = Form(""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(get_current_user),
 ):
     user.full_name = full_name.strip() or user.full_name
 
@@ -227,7 +211,7 @@ def update_account(
 
 
 @app.get("/upload", response_class=HTMLResponse)
-def upload_page(request: Request, user: User = Depends(require_user)):
+def upload_page(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("upload.html", {"request": request, "user": user, "error": None})
 
 
@@ -237,7 +221,7 @@ async def upload_pdf(
     title: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(get_current_user),
 ):
     # 1. Kiểm tra định dạng PDF
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -351,7 +335,7 @@ async def upload_pdf(
 
 
 @app.get("/documents/{document_id}", response_class=HTMLResponse)
-def document_detail(document_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def document_detail(document_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     document = db.query(Document).filter(Document.id == document_id, Document.user_id == user.id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
@@ -361,7 +345,7 @@ def document_detail(document_id: int, request: Request, db: Session = Depends(ge
 
 
 @app.post("/documents/{document_id}/delete")
-def delete_document(document_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def delete_document(document_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     document = db.query(Document).filter(Document.id == document_id, Document.user_id == user.id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
@@ -385,7 +369,7 @@ def generate_exam(
     difficulty: str = Form("Trung bình"),
     category: str = Form(""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(get_current_user),
 ):
     document = db.query(Document).filter(Document.id == document_id, Document.user_id == user.id).first()
     if not document:
@@ -447,13 +431,13 @@ def generate_exam(
 
 
 @app.get("/exams", response_class=HTMLResponse)
-def exams_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def exams_page(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     exams = db.query(Exam).filter(Exam.user_id == user.id).order_by(Exam.created_at.desc()).all()
     return templates.TemplateResponse("exams.html", {"request": request, "user": user, "exams": exams})
 
 
 @app.get("/exams/{exam_id}", response_class=HTMLResponse)
-def exam_detail(exam_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def exam_detail(exam_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     exam = db.query(Exam).filter(Exam.id == exam_id, Exam.user_id == user.id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
@@ -461,7 +445,7 @@ def exam_detail(exam_id: int, request: Request, db: Session = Depends(get_db), u
 
 
 @app.get("/questions/{question_id}/edit", response_class=HTMLResponse)
-def edit_question_page(question_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def edit_question_page(question_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     question = db.query(Question).join(Exam).filter(Question.id == question_id, Exam.user_id == user.id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
@@ -479,7 +463,7 @@ def edit_question(
     correct_answer: str = Form(...),
     explanation: str = Form(""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_user),
+    user: User = Depends(get_current_user),
 ):
     question = db.query(Question).join(Exam).filter(Question.id == question_id, Exam.user_id == user.id).first()
     if not question:
@@ -498,7 +482,7 @@ def edit_question(
 
 
 @app.post("/questions/{question_id}/delete")
-def delete_question(question_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def delete_question(question_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     question = db.query(Question).join(Exam).filter(Question.id == question_id, Exam.user_id == user.id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi.")
@@ -510,7 +494,7 @@ def delete_question(question_id: int, db: Session = Depends(get_db), user: User 
 
 
 @app.get("/exams/{exam_id}/export/{file_type}")
-def export_exam(exam_id: int, file_type: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def export_exam(exam_id: int, file_type: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     exam = db.query(Exam).filter(Exam.id == exam_id, Exam.user_id == user.id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
@@ -529,7 +513,7 @@ def export_exam(exam_id: int, file_type: str, db: Session = Depends(get_db), use
 
 
 @app.post("/exams/{exam_id}/delete")
-def delete_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depends(require_user)):
+def delete_exam(exam_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     exam = db.query(Exam).filter(Exam.id == exam_id, Exam.user_id == user.id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề thi.")
