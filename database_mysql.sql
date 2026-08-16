@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS documents (
     file_size BIGINT NULL,
     page_count INT NULL,
     extraction_warning TEXT NULL,
+    file_hash VARCHAR(64) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
     INDEX idx_documents_user_id (user_id),
